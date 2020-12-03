@@ -76,10 +76,10 @@ std::vector<point> partition_diploid(const uint8_t* g, const uint8_t* H, const i
        int g1 = g[2 * ell];
        int g2 = g[2 * ell + 1];
        res.clear();
+       for (auto &v : new_V_n) v.clear();
        for (int n1 = 0; n1 < N; ++n1) {
            res.push_back(pool.enqueue([ell, g1, g2, H, N, &new_V_n, &V, &V_n, &V_n_n] (const int n1) {
-               new_V_n.at(n1).clear();
-               for (int n2 = n1; n2 < N; ++n2) {
+               for (int n2 = 0; n2 < N; ++n2) {
                    int h1 = H[ell * N + n1];
                    int h2 = H[ell * N + n2];
                    int m = std::min((h1 != g1) + (h2 != g2), (h2 != g1) + (h1 != g2));
@@ -90,7 +90,7 @@ std::vector<point> partition_diploid(const uint8_t* g, const uint8_t* H, const i
                    v.merge_lch(V, 2, m);
                    new_V_n.at(n1).merge_lch(v);
                }
-           }, n1));
+           },n1));
        }
        for (auto &&r : res) r.get();
        V_n = new_V_n;

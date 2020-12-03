@@ -1,14 +1,18 @@
+from typing import List, Tuple
+
 import numpy as np
-from libcpp.vector cimport vector
-from libcpp.pair cimport pair
+
 from libc.stdint cimport uint8_t
+from libcpp.pair cimport pair
+from libcpp.vector cimport vector
+
 
 cdef extern from "lsss.h":
     ctypedef pair[int, int] point
     vector[point] partition_diploid(const uint8_t* g, const uint8_t* H, const int N, const int L, const int num_threads)
     vector[point] partition_haploid(const uint8_t* h, const uint8_t* H, const int N, const int L, const int num_threads)
 
-def partition_ls(gh: np.ndarray, uint8_t[:, ::1] H, int num_threads):
+def partition_ls(gh: np.ndarray, uint8_t[:, ::1] H, int num_threads) -> List[Tuple[int, int]]:
     L = H.shape[0]
     N = H.shape[1]
     cdef uint8_t[:] h_

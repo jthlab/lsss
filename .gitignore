@@ -3,3 +3,4 @@ __pycache__
 lsss.egg-info
 *.so
 build
+lsss/_lsss.cpp
