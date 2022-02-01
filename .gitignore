@@ -1,6 +1,1 @@
-.idea
-__pycache__
-lsss.egg-info
-*.so
-build
-lsss/_lsss.cpp
+.ipynb_checkpoints
