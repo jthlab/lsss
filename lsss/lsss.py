@@ -78,9 +78,10 @@ class LiStephensSurface:
     def __call__(self, theta, rho):
         # probability of mutation to any bp
         alpha, beta = alpha_beta(theta, rho, self.N)
+        assert np.all([alpha > 0, beta > 0]), (alpha, beta)
         return self.s_beta(beta / alpha)
 
-    def draw(self, ax=None):
+    def draw(self):
         r"""Plot a phase diagram of solution space.
 
         Args:
@@ -102,23 +103,27 @@ class LiStephensSurface:
             FIXME
             See Figure XX in paper for an example of this plot.
         """
-        if ax is None:
-            try:
-                import matplotlib.pyplot as plt
-            except ImportError as e:
-                raise ImportError("Plotting requires matplotlib") from e
+        try:
+            import matplotlib.pyplot as plt
 
-            ax = plt.gca()
+            fig = plt.figure()
+            ax = fig.add_subplot(111, projection="polar")
+        except ImportError as e:
+            raise ImportError("Plotting requires matplotlib") from e
 
         # plot
-        theta = np.geomspace(1.2, 1.6, 200)[:, None]
-        expm1_rho = self.N * (np.expm1(theta) / 3) ** self.s_beta.x[None, :]
-        ax.plot(theta, np.log1p(expm1_rho))
-        ax.set_xscale("log")
-        ax.set_yscale("log")
-        ax.set_xlabel(r"$\theta$")
-        ax.set_ylabel(r"$\rho$")
-        return ax
+        # theta = np.geomspace(1e-4, np.log(4), 200, False)
+        # for xx in self.s_beta.x[1:]:
+        #     expm1_rho = self.N * (np.expm1(theta) / 3) ** xx
+        #     ax.plot(theta[good], np.log1p(expm1_rho)[good])
+        # ax.set_xscale("log")
+        # ax.set_yscale("log")
+        # ax.set_xlabel(r"$\theta$")
+        # ax.set_ylabel(r"$\rho$")
+        theta = np.arctan(self.s_beta.x)[None, :].T
+        r = np.r_[np.zeros_like(theta), np.ones_like(theta)]
+        ax.plot(theta, r)
+        return fig, ax
 
     @classmethod
     def from_ts(

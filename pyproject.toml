@@ -1,0 +1,8 @@
+# pyproject.toml
+[build-system]
+requires = ["setuptools>=42", "wheel", "setuptools_scm[toml]>=3.4", "Cython>=0.29.21"]
+build-backend = "setuptools.build_meta"
+
+# pyproject.toml
+[tool.setuptools_scm]
+write_to = "lsss/version.py"

@@ -12,12 +12,18 @@ def seed(request):
 
 
 @pytest.fixture
-def rnd_alpha(seed):
-    np.random.seed(seed)
-    return np.random.exponential()
+def rng(seed):
+    return np.random.default_rng(seed)
 
 
-rnd_beta = rnd_alpha
+@pytest.fixture
+def alpha(rng):
+    return rng.exponential()
+
+
+@pytest.fixture
+def beta(rng):
+    return rng.exponential()
 
 
 @pytest.fixture
@@ -104,7 +110,7 @@ def test_known_hap_1():
     n = np.arange(ts.get_sample_size())
     ls = LiStephensSurface.from_ts(ts, n[0], n[1:])
     beta = ls.V
-    assert beta == [(0, 26), (1, 20), (2, 16), (3, 13), (4, 11), (88, 11)]
+    assert beta == [(0, 0), (88, 0)]
 
 
 def test_known_dip_1():
@@ -116,13 +122,30 @@ def test_known_dip_1():
         random_seed=1,
     )
     G = ts.genotype_matrix()
-    assert G.shape == (1082, 10)
+    assert G.shape == (1011, 10)
     n = np.arange(10)
     ls = LiStephensSurface.from_ts(ts, n[-2:], n[:-2])
-    assert ls.gh.shape == (1082, 2)
-    assert ls.H.shape == (1082, 8)
+    assert ls.gh.shape == (1011, 2)
+    assert ls.H.shape == (1011, 8)
     beta = ls.V
-    assert beta == [(0, 2), (2, 1), (2164, 1)]
+    assert beta == [
+        (0, 271),
+        (1, 223),
+        (2, 184),
+        (3, 156),
+        (4, 138),
+        (6, 106),
+        (7, 92),
+        (8, 81),
+        (9, 75),
+        (11, 64),
+        (12, 60),
+        (16, 48),
+        (18, 44),
+        (29, 33),
+        (39, 28),
+        (2022, 28),
+    ]
 
 
 def test_known_dip_2():
@@ -132,12 +155,10 @@ def test_known_dip_2():
     assert ls.V == [(0, 1), (10, 1)]
 
 
-def test_true_invariant_hap(rnd_ts, rnd_alpha, rnd_beta):
+def test_true_invariant_hap(rnd_ts, alpha, beta):
     n = np.arange(rnd_ts.get_sample_size())
     focal = n[0]
     panel = n[1:]
-    alpha = rnd_alpha
-    beta = rnd_beta
     d1 = ls_hap(rnd_ts, focal, panel, alpha=alpha, beta=beta)
     d2 = ls_hap(rnd_ts, focal, panel, alpha=alpha / beta, beta=1.0)
     d3 = ls_hap(rnd_ts, focal, panel, alpha=1.0, beta=beta / alpha)
@@ -165,29 +186,27 @@ def test_beta_partition_dip_theta1(rnd_ts):
     _test_partition(rnd_ts, focal, panel, alpha=1.0)
 
 
-def test_beta_partition_hap_general_theta(rnd_ts, rnd_alpha):
+def test_beta_partition_hap_general_theta(rnd_ts, alpha):
     n = np.arange(rnd_ts.get_sample_size())
     focal = n[0]
     panel = n[1:]
-    _test_partition(rnd_ts, focal, panel, alpha=rnd_alpha)
+    _test_partition(rnd_ts, focal, panel, alpha=alpha)
 
 
-def test_C_s_beta(rnd_hap_ls, seed):
-    np.random.seed(seed)
+def test_C_s_beta(rnd_hap_ls, rng):
     C = rnd_hap_ls.C_beta
     s = rnd_hap_ls.s_beta
-    for beta in np.r_[0.0, np.random.exponential(size=10)]:
+    for beta in np.r_[0.0, rng.exponential(size=10)]:
         r, m = s(beta)
         assert np.allclose(m + beta * r, C(beta))
 
 
-def test_phase_function_hap(rnd_ts, seed):
-    np.random.seed(seed)
+def test_phase_function_hap(rnd_ts, rng):
     N = rnd_ts.get_sample_size()
     n = np.arange(N)
     ls = LiStephensSurface.from_ts(rnd_ts, n[0], n[1:])
     f = phase_function(ls.s_beta, ls.N)
-    for theta, rho in np.random.exponential(size=(10, 2)):
+    for theta, rho in rng.exponential(size=(10, 2)):
         alpha, beta = alpha_beta(theta, rho, ls.N)
         if alpha < 0 or beta < 0:
             continue
@@ -198,5 +217,86 @@ def test_phase_function_hap(rnd_ts, seed):
         assert r == d["r"]
 
 
-def test_phase_function_dip(rnd_ts, seed):
-    assert False
+def test_ls_hap_path_simple():
+    G = np.array([[0, 0, 1, 1], [0, 0, 0, 0], [1, 1, 1, 1]]).T
+    d = ls_hap(G, 0, [1, 2], alpha=1.0, beta=0.5)
+    assert d["m"] == 0
+    assert d["r"] == 1
+    assert np.all(d["path"] == [[0, 2], [1, 2]])
+
+
+def test_ls_hap_path(rnd_ts, alpha, beta):
+    G = rnd_ts.genotype_matrix()
+    L, H = G.shape
+    d = ls_hap(rnd_ts, 0, np.arange(1, H), alpha=alpha, beta=beta)
+    focal = G[:, 0]
+    panel = G[:, 1:]
+    path = d["path"]
+    assert len(path) - 1 == d["r"]
+    assert path[:, 1].sum() == L
+    m = 0
+    ell = 0
+    for h, k in path:
+        m += (focal[ell : ell + k] != panel[ell : ell + k, h]).sum()
+        ell += k
+    assert m == d["m"]
+
+
+def test_ls_dip_path_simple(alpha, beta):
+    G = np.array(
+        [[0, 0, 1, 1], [1, 1, 0, 0], [0, 0, 0, 0], [1, 1, 1, 1], [0, 1, 0, 1]]
+    ).T
+    focal = G[:, :2].sum(1)
+    panel = G[:, 2:]
+    d = ls_dip(G, [0, 1], [2, 3, 4], alpha=alpha, beta=beta)
+    _test_ls_dip_path(d)
+
+
+def test_ls_dip_path_simple2(alpha, beta):
+    G = np.array([[0, 0, 1, 1], [1, 1, 0, 0], [0, 0, 0, 0], [1, 1, 1, 1]]).T
+    d = ls_dip(G, [0, 1], [2, 3], alpha=alpha, beta=beta)
+    _test_ls_dip_path(d)
+    truth = np.array([[0, 1, 4]])
+    assert (d["path"] == truth).all() or (d["path"] == truth[:, [1, 0, 2]]).all()
+
+
+def test_ls_dip_path_simple3(alpha, beta):
+    G = np.array([[1, 1, 0, 0], [1, 1, 0, 0], [0, 0, 0, 0], [1, 1, 1, 1]]).T
+    focal = G[:, :2].sum(1)
+    panel = G[:, 2:]
+    d = ls_dip(G, [0, 1], [2, 3], alpha=alpha, beta=beta)
+    _test_ls_dip_path(d)
+
+
+def test_ls_dip_path_simple5(alpha, beta):
+    G = np.array([[0, 0], [1, 0], [0, 1], [1, 0]]).T  # [1, 0]
+    focal = G[:, :2].sum(1)
+    panel = G[:, 2:]
+    d = ls_dip(G, [0, 1], [2, 3], alpha=alpha, beta=beta)
+    _test_ls_dip_path(d)
+
+
+def test_ls_dip_path(rnd_ts, alpha, beta):
+    G = rnd_ts.genotype_matrix()
+    L, H = G.shape
+    d = ls_dip(G, [0, 1], np.arange(2, H), alpha=alpha, beta=beta)
+    focal = G[:, :2].sum(1)
+    panel = G[:, 2:]
+    _test_ls_dip_path(d)
+
+
+def _test_ls_dip_path(d):
+    # check all posistions accounted for
+    g = d["g"]
+    G = d["G"]
+    p = d["path"]
+    assert p[:, 2].sum() == G.shape[0]
+    # check recombinations sum up
+    ps = p[:, :2]
+    s = [min((a != b).sum(), (a != b[::-1]).sum()) for a, b in zip(ps[:-1], ps[1:])]
+    r = sum(s)
+    m = ell = 0
+    for h1, h2, span in d["path"]:
+        m += abs(g[ell : ell + span] - G[ell : ell + span, [h1, h2]].sum(1)).sum()
+        ell += span
+    assert d["alpha"] * m + d["beta"] * r >= d["c"]
