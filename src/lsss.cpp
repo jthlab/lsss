@@ -1,12 +1,9 @@
 #include "prettyprint.hpp"
 #include "lsss.h"
 
+// vector cross product
 int cross(point o, point a, point b) {
     return (a.first - o.first) * (b.second - o.second) - (a.second - o.second) * (b.first - o.first);
-}
-
-void merge_lch(std::vector<point> &a, const std::vector<point> b) {
-    // Merge sorted point list b into sorted point list a, retaining only the lower convex hull
 }
 
 class uniq_pt_lst : public std::vector<point> {
