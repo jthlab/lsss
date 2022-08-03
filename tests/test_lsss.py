@@ -31,8 +31,8 @@ def rnd_ts(seed):
     return msp.simulate(
         sample_size=10,
         length=1e5,
-        recombination_rate=1e-4,
-        mutation_rate=1e-4,
+        recombination_rate=1e-3,
+        mutation_rate=1e-3,
         random_seed=seed,
     )
 
@@ -293,8 +293,7 @@ def _test_ls_dip_path(d):
     assert p[:, 2].sum() == G.shape[0]
     # check recombinations sum up
     ps = p[:, :2]
-    s = [min((a != b).sum(), (a != b[::-1]).sum()) for a, b in zip(ps[:-1], ps[1:])]
-    r = sum(s)
+    r = (ps[1:] != ps[:-1]).astype(int).sum()
     m = ell = 0
     for h1, h2, span in d["path"]:
         m += abs(g[ell : ell + span] - G[ell : ell + span, [h1, h2]].sum(1)).sum()
