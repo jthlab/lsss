@@ -13,4 +13,6 @@ extensions = [
 setup(
     name="lsss",
     ext_modules=cythonize(extensions),
+    use_scm_version=True,
+    setup_requires=['setuptools_scm'],
 )
